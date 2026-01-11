@@ -246,58 +246,9 @@
         }
 
         function preloadResources() {
-            // 计算总资源数：背景图 + 10张卡片图片
-            totalResources = 1 + CARD_DATA.length;
-            console.log(`开始预加载 ${totalResources} 个资源...`);
-            
-            setTimeout(() => {
-                if (!allResourcesLoaded) {
-                    console.warn(`加载超时！已加载 ${loadedResources}/${totalResources} 个资源`);
-                    console.warn('未加载的资源数量:', totalResources - loadedResources);
-                    allResourcesLoaded = true;
-                    showIntroContent();
-                }
-            }, 15000);
-            
-            // 预加载背景图 - 先设置监听器再加载
-            const handleCardBackLoad = () => {
-                if (!cardBackImgLoaded) {
-                    cardBackImgLoaded = true;
-                    updateLoadingProgress('背景图 h2.png');
-                }
-            };
-            
-            const handleCardBackError = () => {
-                if (!cardBackImgLoaded) {
-                    cardBackImgLoaded = true;
-                    console.error('Failed to load card back image');
-                    updateLoadingProgress('背景图 h2.png (失败)');
-                }
-            };
-            
-            // 检查是否已经加载完成（在 createCards 时可能已经加载）
-            if (cardBackImg.complete && cardBackImg.naturalWidth > 0) {
-                handleCardBackLoad();
-            } else {
-                cardBackImg.onload = handleCardBackLoad;
-                cardBackImg.onerror = handleCardBackError;
-                // 如果还没设置 src，现在设置
-                if (!cardBackImg.src) {
-                    cardBackImg.src = CARD_BACK_URL;
-                }
-            }
-            
-            // 预加载所有卡片图片
-            CARD_DATA.forEach((data, index) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.onload = () => updateLoadingProgress(`图片 g${index + 1}.jpg`);
-                img.onerror = () => {
-                    console.error(`Failed to load image: ${data.image}`);
-                    updateLoadingProgress(`图片 g${index + 1}.jpg (失败)`);
-                };
-                img.src = data.image;
-            });
+            totalResources = 0;
+            allResourcesLoaded = true;
+            showIntroContent();
         }
 
         const TOTAL_CARDS = 10;
