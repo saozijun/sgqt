@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>瑞法与羌青瓷 - 情感占卜 (修复版)</title>
+    <title>十个晴天做大做强</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous" defer></script>
@@ -130,10 +130,10 @@
     <div id="canvas-container"></div>
 
     <div id="ui-layer">
-        <div id="loading-text" class="text-sm text-gray-400 mb-4 tracking-[0.3em] uppercase">System Initializing...</div>
+        <div id="loading-text" class="text-sm text-gray-400 mb-4 tracking-[0.3em] uppercase">加载中...</div>
         
         <div id="intro-content" class="text-center hidden flex flex-col items-center">
-            <h1 class="text-4xl md:text-6xl font-light mb-8 breathe tracking-widest text-gray-100">瑞法，你来了</h1>
+            <h1 class="text-4xl md:text-6xl font-light mb-8 breathe tracking-widest text-gray-100">十个晴天做大做强</h1>
 
             <button id="start-btn" class="pointer-events-auto border border-gray-500 px-10 py-3 rounded-full text-gray-300 hover:bg-white hover:text-black transition duration-700 tracking-[0.2em] text-sm uppercase hover:shadow-[0_0_20px_rgba(255,255,255,0.5)]">
                 开始
@@ -548,7 +548,7 @@
 
                 if (isPinchingNow) {
                     currentGesture = GESTURE.PINCHING;
-                    gestureHint.innerText = "想要"; 
+                    gestureHint.innerText = "👍"; 
                     handCursor.children[0].material.color.setHex(0xffaa00); 
                     
                     if (!isPinching) {
