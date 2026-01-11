@@ -162,10 +162,135 @@
         ];
 
         const CARD_BACK_URL = "./images/h2.png"; 
+        const BG_MUSIC_URL = "./audio/bg.mp3";
         
         const cardBackImg = new Image();
         cardBackImg.crossOrigin = "Anonymous";
-        cardBackImg.src = CARD_BACK_URL;
+        // 不要在这里设置 src，等待 preloadResources 中统一加载
+
+        // 资源加载管理
+        let totalResources = 0;
+        let loadedResources = 0;
+        let allResourcesLoaded = false;
+        let loadingDetails = []; // 用于调试
+
+        function updateLoadingProgress(resourceName) {
+            loadedResources++;
+            loadingDetails.push(resourceName);
+            const progress = Math.round((loadedResources / totalResources) * 100);
+            loadingText.innerText = `加载中... ${progress}%`;
+            console.log(`✓ 已加载 [${loadedResources}/${totalResources}]: ${resourceName}`);
+            
+            if (loadedResources >= totalResources) {
+                allResourcesLoaded = true;
+                console.log('✓ 所有资源加载完成！');
+                showIntroContent();
+            }
+        }
+
+        function showIntroContent() {
+            loadingText.style.display = 'none';
+            introContent.classList.remove('hidden');
+        }
+
+        function preloadResources() {
+            // 计算总资源数：背景图 + 背景音乐 + 10张卡片图片 + 10个音频
+            totalResources = 1 + 1 + CARD_DATA.length + CARD_DATA.length;
+            console.log(`开始预加载 ${totalResources} 个资源...`);
+            
+            // 设置超时保护：10秒后如果还没加载完就强制显示
+            setTimeout(() => {
+                if (!allResourcesLoaded) {
+                    console.warn(`加载超时！已加载 ${loadedResources}/${totalResources} 个资源`);
+                    console.warn('未加载的资源数量:', totalResources - loadedResources);
+                    allResourcesLoaded = true;
+                    showIntroContent();
+                }
+            }, 10000);
+            
+            // 预加载背景图
+            cardBackImg.onload = () => updateLoadingProgress('背景图 h2.png');
+            cardBackImg.onerror = () => {
+                console.error('Failed to load card back image');
+                updateLoadingProgress('背景图 h2.png (失败)');
+            };
+            cardBackImg.src = CARD_BACK_URL; // 在设置监听器后再设置 src
+            
+            // 预加载背景音乐
+            const bgMusicPreload = new Audio();
+            bgMusicPreload.src = BG_MUSIC_URL;
+            
+            // 音频添加超时处理
+            let bgMusicLoaded = false;
+            setTimeout(() => {
+                if (!bgMusicLoaded) {
+                    console.warn('背景音乐加载超时，跳过');
+                    bgMusicLoaded = true;
+                    updateLoadingProgress('背景音乐 bg.mp3 (超时)');
+                }
+            }, 5000);
+            
+            bgMusicPreload.addEventListener('canplaythrough', () => {
+                if (!bgMusicLoaded) {
+                    bgMusicLoaded = true;
+                    updateLoadingProgress('背景音乐 bg.mp3');
+                }
+            }, { once: true });
+            
+            bgMusicPreload.addEventListener('error', () => {
+                if (!bgMusicLoaded) {
+                    bgMusicLoaded = true;
+                    console.error('Failed to load background music');
+                    updateLoadingProgress('背景音乐 bg.mp3 (失败)');
+                }
+            }, { once: true });
+            
+            bgMusicPreload.load();
+            
+            // 预加载所有卡片图片和音频
+            CARD_DATA.forEach((data, index) => {
+                // 预加载图片
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => updateLoadingProgress(`图片 g${index + 1}.jpg`);
+                img.onerror = () => {
+                    console.error(`Failed to load image: ${data.image}`);
+                    updateLoadingProgress(`图片 g${index + 1}.jpg (失败)`);
+                };
+                img.src = data.image;
+                
+                // 预加载音频
+                const audio = new Audio();
+                audio.src = data.audio;
+                
+                // 音频添加超时处理
+                let audioLoaded = false;
+                setTimeout(() => {
+                    if (!audioLoaded) {
+                        console.warn(`音频 ${index + 1}.mp3 加载超时，跳过`);
+                        audioLoaded = true;
+                        updateLoadingProgress(`音频 ${index + 1}.mp3 (超时)`);
+                    }
+                }, 5000);
+                
+                audio.addEventListener('canplaythrough', () => {
+                    if (!audioLoaded) {
+                        audioLoaded = true;
+                        updateLoadingProgress(`音频 ${index + 1}.mp3`);
+                    }
+                }, { once: true });
+                
+                audio.addEventListener('error', () => {
+                    if (!audioLoaded) {
+                        audioLoaded = true;
+                        console.error(`Failed to load audio: ${data.audio}`);
+                        updateLoadingProgress(`音频 ${index + 1}.mp3 (失败)`);
+                    }
+                }, { once: true });
+                
+                audio.load();
+            });
+        }
 
         const TOTAL_CARDS = 10;
 
@@ -230,8 +355,9 @@
                 console.warn('Error:', e);
                 gestureHint.innerText = "组件出错，请使用鼠标交互";
             }
-            loadingText.style.display = 'none';
-            introContent.classList.remove('hidden');
+            
+            // 开始预加载所有资源
+            preloadResources();
         };
 
         function init() {
