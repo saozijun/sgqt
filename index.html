@@ -938,11 +938,11 @@
             function animateZoom() {
                 if (currentState !== STATE.VIEWING) return;
                 
-                progress += 0.015; 
+                progress += 0.010; // 稍微加快速度
                 if (progress > 1) progress = 1;
                 
-                const t = progress;
-                const ease = 1 - Math.pow(1 - t, 4); 
+                // 使用 easeOutCubic 缓动，保持流畅
+                const ease = 1 - Math.pow(1 - progress, 3); 
                 
                 card.position.lerpVectors(startPos, targetPos, ease);
                 card.scale.lerpVectors(startScale, new THREE.Vector3(1.5, 1.5, 1.5), ease);
@@ -956,6 +956,10 @@
                 activeAura.material.opacity = ease * 0.8;
 
                 if (progress >= 1) {
+                    // 确保精确到达目标位置
+                    card.position.copy(targetPos);
+                    card.scale.set(1.5, 1.5, 1.5);
+                    card.quaternion.copy(targetQuat);
                     isZoomLocked = false;
                 } else {
                     requestAnimationFrame(animateZoom);
@@ -976,32 +980,50 @@
                 activeAura = null; 
             }
             
-            const startPos = card.position.clone();
-            const startScale = card.scale.clone();
-            const startQuat = card.quaternion.clone();
+            // 在世界坐标系中记录起始状态
+            const startPosWorld = card.position.clone();
+            const startScaleWorld = card.scale.clone();
+            const startQuatWorld = card.quaternion.clone();
             
-            const targetPos = card.userData.originPos.clone();
+            // 立即将卡片重新 attach 到 cardGroup（会自动转换坐标）
+            cardGroup.attach(card);
+            
+            // 在本地坐标系中记录当前状态（转换后的位置）
+            const startPosLocal = card.position.clone();
+            const startScaleLocal = card.scale.clone();
+            const startQuatLocal = card.quaternion.clone();
+            
+            // 目标是 originPos（本地坐标系）
+            const targetPosLocal = card.userData.originPos.clone();
+            const targetScaleLocal = new THREE.Vector3(1, 1, 1);
+            
+            // 计算目标旋转（本地坐标系，朝向圆心）
             const dummy = new THREE.Object3D();
-            dummy.position.copy(targetPos);
+            dummy.position.copy(targetPosLocal);
             dummy.lookAt(0, 0, 0);
-            const targetQuat = dummy.quaternion.clone();
+            const targetQuatLocal = dummy.quaternion.clone();
             
             let progress = 0;
             
             function animateZoomOut() {
                 if (currentState !== STATE.IDLE) return;
                 
-                progress += 0.02;
+                progress += 0.015;
                 if (progress > 1) progress = 1;
                 
-                const ease = 1 - Math.pow(1 - progress, 3);
+                // 使用 easeOutQuad 缓动
+                const ease = progress * (2 - progress);
                 
-                card.position.lerpVectors(startPos, targetPos, ease);
-                card.scale.lerpVectors(startScale, new THREE.Vector3(1, 1, 1), ease);
-                card.quaternion.slerpQuaternions(startQuat, targetQuat, ease);
+                // 在本地坐标系中插值
+                card.position.lerpVectors(startPosLocal, targetPosLocal, ease);
+                card.scale.lerpVectors(startScaleLocal, targetScaleLocal, ease);
+                card.quaternion.slerpQuaternions(startQuatLocal, targetQuatLocal, ease);
                 
                 if (progress >= 1) {
-                    cardGroup.attach(card);
+                    // 确保精确到达
+                    card.position.copy(targetPosLocal);
+                    card.scale.copy(targetScaleLocal);
+                    card.quaternion.copy(targetQuatLocal);
                     isZoomLocked = false;
                     activeCard = null;
                     isPinching = false;
