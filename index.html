@@ -408,7 +408,7 @@
             init();
             try {
                 if (typeof Hands !== 'undefined') {
-                    hands = new Hands({locateFile: (file) => `./mediapipe/${file}`});
+                    hands = new Hands({locateFile: (file) => `https://unpkg.com/@mediapipe/hands/${file}`});
                     hands.setOptions({
                         maxNumHands: 1,
                         modelComplexity: 0, 
