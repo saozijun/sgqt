@@ -408,7 +408,7 @@
             init();
             try {
                 if (typeof Hands !== 'undefined') {
-                    hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+                    hands = new Hands({locateFile: (file) => `./mediapipe/${file}`});
                     hands.setOptions({
                         maxNumHands: 1,
                         modelComplexity: 0, 
