@@ -246,8 +246,8 @@
         }
 
         function preloadResources() {
-            // 计算总资源数：背景图 + 背景音乐 + 10张卡片图片 + 10个音频
-            totalResources = 1 + 1 + CARD_DATA.length + CARD_DATA.length;
+            // 计算总资源数：背景图 + 10张卡片图片
+            totalResources = 1 + CARD_DATA.length;
             console.log(`开始预加载 ${totalResources} 个资源...`);
             
             setTimeout(() => {
@@ -287,38 +287,8 @@
                 }
             }
             
-            const bgMusicPreload = new Audio();
-            bgMusicPreload.src = BG_MUSIC_URL;
-            
-            let bgMusicLoaded = false;
-            setTimeout(() => {
-                if (!bgMusicLoaded) {
-                    console.warn('背景音乐加载超时，跳过');
-                    bgMusicLoaded = true;
-                    updateLoadingProgress('背景音乐 bg.mp3 (超时)');
-                }
-            }, 10000);
-            
-            bgMusicPreload.addEventListener('canplay', () => {
-                if (!bgMusicLoaded) {
-                    bgMusicLoaded = true;
-                    updateLoadingProgress('背景音乐 bg.mp3');
-                }
-            }, { once: true });
-            
-            bgMusicPreload.addEventListener('error', () => {
-                if (!bgMusicLoaded) {
-                    bgMusicLoaded = true;
-                    console.error('Failed to load background music');
-                    updateLoadingProgress('背景音乐 bg.mp3 (失败)');
-                }
-            }, { once: true });
-            
-            bgMusicPreload.load();
-            
-            // 预加载所有卡片图片和音频
+            // 预加载所有卡片图片
             CARD_DATA.forEach((data, index) => {
-                // 预加载图片
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 img.onload = () => updateLoadingProgress(`图片 g${index + 1}.jpg`);
@@ -327,35 +297,6 @@
                     updateLoadingProgress(`图片 g${index + 1}.jpg (失败)`);
                 };
                 img.src = data.image;
-                
-                const audio = new Audio();
-                audio.src = data.audio;
-                
-                let audioLoaded = false;
-                setTimeout(() => {
-                    if (!audioLoaded) {
-                        console.warn(`音频 ${index + 1}.mp3 加载超时，跳过`);
-                        audioLoaded = true;
-                        updateLoadingProgress(`音频 ${index + 1}.mp3 (超时)`);
-                    }
-                }, 8000);
-                
-                audio.addEventListener('canplaythrough', () => {
-                    if (!audioLoaded) {
-                        audioLoaded = true;
-                        updateLoadingProgress(`音频 ${index + 1}.mp3`);
-                    }
-                }, { once: true });
-                
-                audio.addEventListener('error', () => {
-                    if (!audioLoaded) {
-                        audioLoaded = true;
-                        console.error(`Failed to load audio: ${data.audio}`);
-                        updateLoadingProgress(`音频 ${index + 1}.mp3 (失败)`);
-                    }
-                }, { once: true });
-                
-                audio.load();
             });
         }
 
