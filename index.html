@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>瑞法与羌青瓷 - 情感占卜 (修复版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous" defer></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205;
+            font-family: 'Noto Serif SC', serif;
+            color: #e0e0e0;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(2, 2, 5, 0.9);
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        #ui-layer.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .input_video {
+            display: none;
+        }
+        
+        #gesture-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.9);
+            font-size: 15px;
+            text-align: center;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            background: rgba(20, 20, 40, 0.208);
+            padding: 10px 24px;
+            border-radius: 30px;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        #card-info {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.95);
+            text-align: center;
+            z-index: 15;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            background: rgba(20, 20, 40, 0.208);
+            padding: 20px 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.15);
+            max-width: 80%;
+        }
+
+        #card-info h2 {
+            font-size: 24px;
+            margin: 0 0 10px 0;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        #card-info p {
+            font-size: 16px;
+            margin: 0;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.85);
+        }
+
+        .breathe {
+            animation: breatheAnim 4s infinite ease-in-out;
+        }
+
+        @keyframes breatheAnim {
+            0%, 100% { opacity: 0.5; text-shadow: 0 0 5px rgba(255,255,255,0.1); transform: scale(0.98); }
+            50% { opacity: 1; text-shadow: 0 0 25px rgba(255,255,255,0.5); transform: scale(1.02); }
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bgMusic" src="./audio/bg.mp3" loop></audio>
+    <audio id="cardAudio"></audio>
+    <video class="input_video"></video>
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="loading-text" class="text-sm text-gray-400 mb-4 tracking-[0.3em] uppercase">System Initializing...</div>
+        
+        <div id="intro-content" class="text-center hidden flex flex-col items-center">
+            <h1 class="text-4xl md:text-6xl font-light mb-8 breathe tracking-widest text-gray-100">瑞法，你来了</h1>
+
+            <button id="start-btn" class="pointer-events-auto border border-gray-500 px-10 py-3 rounded-full text-gray-300 hover:bg-white hover:text-black transition duration-700 tracking-[0.2em] text-sm uppercase hover:shadow-[0_0_20px_rgba(255,255,255,0.5)]">
+                开始
+            </button>
+        </div>
+    </div>
+
+    <div id="gesture-hint">正在寻找手部信号...</div>
+    <div id="card-info">
+        <h2 id="card-title"></h2>
+        <p id="card-desc"></p>
+    </div>
+
+    <script>
+        const CARD_DATA = [
+            { image: "./images/g1.jpg", audio: "./audio/1.mp3", title: "蒋敦豪", desc: "要敢开口 被拒绝了再说" },
+            { image: "./images/g2.jpg", audio: "./audio/2.mp3", title: "鹭卓", desc: "想法自由发散 做自己喜欢做的事" },
+            { image: "./images/g3.jpg", audio: "./audio/3.mp3", title: "李耕耘", desc: "这是第不要去想 想的话全是问题 去做 做全是答案" },
+            { image: "./images/g4.jpg", audio: "./audio/4.mp3", title: "李昊", desc: "想到的时候 就马上去做 太阳下山是不等人的" },
+            { image: "./images/g5.jpg", audio: "./audio/5.mp3", title: "赵一博", desc: "虽然有一堆事 但我们一件一件一件一件一件总会办完的" },
+            { image: "./images/g6.jpg", audio: "./audio/6.mp3", title: "卓沅", desc: "一定不要迷茫 未来还很长" },
+            { image: "./images/g7.jpg", audio: "./audio/7.mp3", title: "赵小童", desc: "深深的话我们浅浅地说 然后未来长长的路 我们一起再慢慢地走" },
+            { image: "./images/g8.jpg", audio: "./audio/8.mp3", title: "何浩楠", desc: "开心最重要 无论如何 不要想太多 人活在世上 不就是为了要开心嘛" },
+            { image: "./images/g9.jpg", audio: "./audio/9.mp3", title: "陈少熙", desc: "人生不就是白干加白干" },
+            { image: "./images/g10.jpg", audio: "./audio/10.mp3", title: "王一珩", desc: "去做 最自信 最真诚 最热烈的自己" }
+        ];
+
+        const CARD_BACK_URL = "./images/h2.png"; 
+        
+        const cardBackImg = new Image();
+        cardBackImg.crossOrigin = "Anonymous";
+        cardBackImg.src = CARD_BACK_URL;
+
+        const TOTAL_CARDS = 10;
+
+        let scene, camera, renderer;
+        let cardGroup, starField; 
+        let cards = []; 
+        let raycaster;
+        let handCursor; 
+        let hands = null; 
+        let handsLoaded = false;
+        
+        let time = 0;
+        let isPinching = false;
+        let activeCard = null; 
+        let activeAura = null; 
+        let isZoomLocked = false; 
+        let particleTexture = null; 
+        
+        const GESTURE = { NONE: 0, OPEN_HAND: 1, POINTING: 2, PINCHING: 3 };
+        let currentGesture = GESTURE.NONE;
+
+        let targetGroupRotationY = 0;
+        let targetCursorX = 0;
+        let targetCursorY = 0;
+        let smoothedCursorX = 0;
+        let smoothedCursorY = 0;
+        let lastHandX = null; 
+
+        const STATE = { INTRO: 0, IDLE: 1, VIEWING: 3, DISSOLVING: 4 };
+        let currentState = STATE.INTRO;
+
+        const uiLayer = document.getElementById('ui-layer');
+        const startBtn = document.getElementById('start-btn');
+        const gestureHint = document.getElementById('gesture-hint');
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const loadingText = document.getElementById('loading-text');
+        const introContent = document.getElementById('intro-content');
+        const bgMusic = document.getElementById('bgMusic');
+        const cardAudio = document.getElementById('cardAudio');
+        const cardInfo = document.getElementById('card-info');
+        const cardTitle = document.getElementById('card-title');
+        const cardDesc = document.getElementById('card-desc');
+
+        window.onload = function() {
+            init();
+            try {
+                if (typeof Hands !== 'undefined') {
+                    hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 0, 
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+                    hands.onResults(onHandResults);
+                    handsLoaded = true;
+                } else {
+                    console.warn('MediaPipe Not Loaded');
+                    gestureHint.innerText = "组件加载失败，请使用鼠标交互";
+                }
+            } catch (e) {
+                console.warn('Error:', e);
+                gestureHint.innerText = "组件出错，请使用鼠标交互";
+            }
+            loadingText.style.display = 'none';
+            introContent.classList.remove('hidden');
+        };
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x020205, 0.012); 
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 0.1); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            particleTexture = createGlowTexture();
+
+            const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+            scene.add(ambientLight);
+            
+            const centerLight = new THREE.PointLight(0xaaccff, 1.8, 50);
+            centerLight.position.set(0, 6, 6);
+            scene.add(centerLight);
+            
+            const warmLight = new THREE.PointLight(0xffaa55, 1.2, 30);
+            warmLight.position.set(0, -6, 6);
+            scene.add(warmLight);
+            
+            raycaster = new THREE.Raycaster();
+
+            const cursorGeo = new THREE.SphereGeometry(0.04, 16, 16);
+            const cursorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+            handCursor = new THREE.Mesh(cursorGeo, cursorMat);
+            handCursor.visible = false;
+            
+            const cursorGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: particleTexture, color: 0xffffff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending
+            }));
+            cursorGlow.scale.set(0.3, 0.3, 1);
+            handCursor.add(cursorGlow);
+            scene.add(handCursor);
+
+            createStarfield();
+
+            cardGroup = new THREE.Group();
+            scene.add(cardGroup);
+            createCards();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mousedown', () => { isMouseDrag = true; });
+            document.addEventListener('mouseup', () => { isMouseDrag = false; });
+            
+            startBtn.addEventListener('click', startExperience);
+
+            animate();
+        }
+
+        function createGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.4)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 64, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createStarfield() {
+            const geometry = new THREE.BufferGeometry();
+            const count = 4000; 
+            const positions = [];
+            
+            for(let i=0; i<count; i++) {
+                const r = 40 + Math.random() * 100; 
+                const theta = 2 * Math.PI * Math.random();
+                const phi = Math.acos(2 * Math.random() - 1);
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+                positions.push(x, y, z);
+            }
+            
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({
+                color: 0x88bbff, 
+                size: 0.5,       
+                map: particleTexture,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            starField = new THREE.Points(geometry, material);
+            scene.add(starField);
+        }
+
+        let isMouseDrag = false;
+
+        function startExperience() {
+            bgMusic.volume = 0.3;
+            bgMusic.play().catch(e => console.log("Audio play failed (interaction needed):", e));
+            uiLayer.classList.add('hidden');
+            uiLayer.style.pointerEvents = 'none'; 
+            currentState = STATE.IDLE;
+            gestureHint.style.opacity = 1;
+            
+            if (handsLoaded && typeof Camera !== 'undefined') {
+                const cameraUtils = new Camera(videoElement, {
+                    onFrame: async () => { if (hands) await hands.send({image: videoElement}); },
+                    width: 640, height: 480
+                });
+                cameraUtils.start().catch(e => {
+                    console.warn('Camera error:', e);
+                    gestureHint.innerText = "摄像头占用中，请使用鼠标";
+                });
+            } else {
+                gestureHint.innerText = "手势不可用，请使用鼠标";
+            }
+        }
+
+        function createCards() {
+            const radius = 11; 
+            for (let i = 0; i < TOTAL_CARDS; i++) {
+                const backCanvas = createCardTexture('back');
+                const backTexture = new THREE.CanvasTexture(backCanvas);
+                
+                // Back image logic
+                if (!cardBackImg.complete) {
+                    cardBackImg.addEventListener('load', () => {
+                        const ctx = backCanvas.getContext('2d');
+                        drawBackImageContent(ctx);
+                        backTexture.needsUpdate = true;
+                    });
+                }
+
+                backTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                
+                const sideMat = new THREE.MeshStandardMaterial({ color: 0x172c22, roughness: 0.4 });
+                const material = [
+                    sideMat, sideMat, sideMat, sideMat,
+                    new THREE.MeshStandardMaterial({ map: backTexture, roughness: 0.5, metalness: 0.3 }),
+                    new THREE.MeshStandardMaterial({ color: 0x172c22, roughness: 0.5, metalness: 0.1 }) 
+                ];
+                
+                const cardGeo = new THREE.BoxGeometry(1.8, 3.2, 0.04);
+                const card = new THREE.Mesh(cardGeo, material);
+                
+                const angle = (i / TOTAL_CARDS) * Math.PI * 2;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                card.position.set(x, 0, z);
+                
+                card.lookAt(0, 0, 0);
+                
+                card.userData = { 
+                    id: i, 
+                    originPos: card.position.clone(), 
+                    cardData: CARD_DATA[i],
+                    isDissolved: false,
+                    currentAngle: angle,
+                    targetAngle: angle
+                };
+                cardGroup.add(card);
+                cards.push(card);
+            }
+        }
+
+        function drawBackImageContent(ctx) {
+            if (cardBackImg.complete && cardBackImg.naturalWidth > 0) {
+                const x = 16, y = 16, w = 224, h = 418; 
+                ctx.save();
+                const targetW = w * 2; 
+                const targetH = h * 2; 
+                const imgAspect = cardBackImg.naturalWidth / cardBackImg.naturalHeight;
+                let drawW = targetW;
+                let drawH = targetW / imgAspect;
+
+                if (drawH > targetH) {
+                    drawH = targetH;
+                    drawW = targetH * imgAspect;
+                }
+
+                const drawX = x + (w - drawW) / 2;
+                const drawY = y + (h - drawH) / 2;
+
+                ctx.shadowColor = "rgba(0,0,0,0.7)";
+                ctx.shadowBlur = 25;
+                ctx.shadowOffsetY = 10;
+                ctx.globalAlpha = 0.4;
+                ctx.drawImage(cardBackImg, drawX, drawY, drawW, drawH);
+                ctx.restore();
+            }
+        }
+
+        // --- 修复重点：增加 onLoadCallback 参数 ---
+        function createCardTexture(type, imageUrl, onLoadCallback) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const drawRoundRect = (x, y, w, h, r) => {
+                if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
+                ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+            };
+
+            const drawGreenBackground = () => {
+                const grad = ctx.createLinearGradient(0, 0, 256, 450);
+                grad.addColorStop(0, '#0f1f18'); 
+                grad.addColorStop(1, '#1a3326'); 
+                ctx.fillStyle = grad; 
+                ctx.fillRect(0,0,256,450);
+                
+                for(let i=0; i<3000; i++) {
+                    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
+                    ctx.fillRect(Math.random()*256, Math.random()*450, 2, 2);
+                }
+
+                ctx.lineWidth = 6;
+                const borderGrad = ctx.createLinearGradient(0,0,256,450);
+                borderGrad.addColorStop(0, '#594426'); borderGrad.addColorStop(0.5, '#a88b56'); borderGrad.addColorStop(1, '#594426');
+                ctx.strokeStyle = borderGrad;
+                drawRoundRect(10, 10, 236, 430, 10); ctx.stroke();
+                
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = "rgba(168, 139, 86, 0.3)";
+                drawRoundRect(16, 16, 224, 418, 6); ctx.stroke();
+            };
+
+            if (type === 'back') {
+                canvas.width = 256; canvas.height = 450; 
+                drawGreenBackground();
+                drawBackImageContent(ctx);
+            } else {
+                canvas.width = 512; canvas.height = 900;
+                
+                ctx.save();
+                ctx.scale(2, 2);
+                drawGreenBackground();
+                ctx.restore();
+                
+                if(imageUrl) {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.onload = () => {
+                        const padding = 40;
+                        const maxW = 512 - padding * 2;
+                        const maxH = 900 - padding * 2;
+                        
+                        const imgAspect = img.width / img.height;
+                        let drawW = maxW;
+                        let drawH = drawW / imgAspect;
+                        
+                        if(drawH > maxH) {
+                            drawH = maxH;
+                            drawW = drawH * imgAspect;
+                        }
+                        
+                        const drawX = (512 - drawW) / 2;
+                        const drawY = (900 - drawH) / 2;
+                        
+                        ctx.save();
+                        ctx.shadowColor = "rgba(0,0,0,0.8)";
+                        ctx.shadowBlur = 30;
+                        ctx.shadowOffsetY = 15;
+                        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+                        ctx.restore();
+
+                        // --- 修复重点：图片画好后调用回调 ---
+                        if(onLoadCallback) onLoadCallback();
+                    };
+                    img.onerror = () => {
+                        console.error("Failed to load image:", imageUrl);
+                    }
+                    img.src = imageUrl;
+                }
+            }
+            return canvas;
+        }
+
+        function onHandResults(results) {
+            if (currentState === STATE.VIEWING) {
+                if (!isZoomLocked && results.multiHandLandmarks.length > 0) detectRelease(results.multiHandLandmarks[0]);
+                return;
+            }
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indexTip = landmarks[8];
+                const thumbTip = landmarks[4];
+                const middleTip = landmarks[12];
+                const ringTip = landmarks[16];
+                const wrist = landmarks[0];
+
+                const ndcX = (1 - indexTip.x) * 2 - 1;
+                const ndcY = - (indexTip.y * 2 - 1);
+                
+                const dIndex = Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y);
+                const dMiddle = Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y);
+                const dRing = Math.hypot(ringTip.x - wrist.x, ringTip.y - wrist.y);
+                const pinchDist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+                
+                const isPinchingNow = pinchDist < 0.08; 
+                const isPointing = (dIndex > 0.2) && (dMiddle < dIndex * 0.85) && (dRing < dIndex * 0.85);
+                const isOpenHand = (dIndex > 0.2) && (dMiddle > 0.2) && (dRing > 0.2) && !isPinchingNow;
+
+                if (isPinchingNow) {
+                    currentGesture = GESTURE.PINCHING;
+                    gestureHint.innerText = "想要"; 
+                    handCursor.children[0].material.color.setHex(0xffaa00); 
+                    
+                    if (!isPinching) {
+                        isPinching = true;
+                        detectPinchAction();
+                    }
+
+                } else if (isPointing) {
+                    isPinching = false; 
+                    currentGesture = GESTURE.POINTING;
+                    gestureHint.innerText = "要看看禾想说的话吗";
+                    handCursor.children[0].material.color.setHex(0xffffff); 
+                    targetCursorX = ndcX;
+                    targetCursorY = ndcY;
+                    lastHandX = null;
+                    handCursor.visible = true;
+
+                } else if (isOpenHand) {
+                    isPinching = false; 
+                    currentGesture = GESTURE.OPEN_HAND;
+                    gestureHint.innerText = "要看看禾想说的话吗";
+                    handCursor.visible = false; 
+                    if (lastHandX !== null) {
+                        const delta = ndcX - lastHandX;
+                        targetGroupRotationY -= delta * 2.2; 
+                    }
+                    lastHandX = ndcX;
+
+                } else {
+                    isPinching = false; 
+                    currentGesture = GESTURE.NONE;
+                    gestureHint.innerText = "信号连接中...";
+                    lastHandX = null; 
+                }
+            } else {
+                gestureHint.innerText = "未检测到手部";
+                lastHandX = null;
+                isPinching = false;
+            }
+        }
+
+        function detectPinchAction() {
+            if (currentState === STATE.IDLE && activeCard) {
+                currentState = STATE.VIEWING;
+                zoomInCard(activeCard);
+            }
+        }
+
+        function detectRelease(landmarks) {
+            const indexTip = landmarks[8];
+            const thumbTip = landmarks[4];
+            const distance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+            if (distance > 0.15) {
+                currentState = STATE.IDLE;
+                zoomOutCard(activeCard);
+            }
+        }
+
+        function onMouseMove(event) {
+            const ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+            const ndcY = - (event.clientY / window.innerHeight) * 2 + 1;
+            if (isMouseDrag) {
+                currentGesture = GESTURE.OPEN_HAND;
+                gestureHint.innerText = "旋转模式";
+                if (lastHandX !== null) {
+                    const delta = ndcX - lastHandX;
+                    targetGroupRotationY -= delta * 2.0;
+                }
+                lastHandX = ndcX;
+                handCursor.visible = false;
+                isPinching = false;
+            } else {
+                currentGesture = GESTURE.POINTING;
+                gestureHint.innerText = "选择模式";
+                targetCursorX = ndcX;
+                targetCursorY = ndcY;
+                lastHandX = null;
+                handCursor.visible = true;
+                isPinching = false;
+            }
+        }
+        
+        document.addEventListener('mousedown', () => { 
+            if(!isMouseDrag && currentState === STATE.IDLE && activeCard) {
+                currentState = STATE.VIEWING;
+                zoomInCard(activeCard);
+            }
+        });
+        document.addEventListener('mouseup', () => {
+           if(currentState === STATE.VIEWING && !isZoomLocked) {
+               currentState = STATE.IDLE;
+               zoomOutCard(activeCard);
+           }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+            if (currentState === STATE.INTRO) return;
+
+            smoothedCursorX += (targetCursorX - smoothedCursorX) * 0.15; 
+            smoothedCursorY += (targetCursorY - smoothedCursorY) * 0.15;
+            cardGroup.rotation.y += (targetGroupRotationY - cardGroup.rotation.y) * 0.05;
+
+            updateHandCursor3D(smoothedCursorX, smoothedCursorY);
+
+            if(starField) starField.rotation.y = time * 0.02; 
+
+            cards.forEach(c => {
+                if (!c.userData.isDissolved && c !== activeCard && c.userData.targetAngle !== undefined) {
+                    const diff = c.userData.targetAngle - c.userData.currentAngle;
+                    if (Math.abs(diff) > 0.0001) {
+                        c.userData.currentAngle += diff * 0.05;
+                        const r = 11;
+                        c.position.x = Math.cos(c.userData.currentAngle) * r;
+                        c.position.z = Math.sin(c.userData.currentAngle) * r;
+                        c.lookAt(0, 0, 0);
+                        c.userData.originPos.copy(c.position); 
+                    }
+                }
+            }); 
+
+            if (currentState === STATE.VIEWING && activeAura) {
+                updateAura(activeAura);
+                if(activeCard && !isZoomLocked) {
+                    activeCard.position.y = Math.sin(time * 1.5) * 0.05; 
+                    
+                    const camToCard = activeCard.position.clone().sub(camera.position).normalize();
+                    activeAura.position.copy(activeCard.position).add(camToCard.multiplyScalar(0.8)); 
+                    activeAura.rotation.copy(activeCard.rotation);
+                }
+            }
+
+            if (currentState === STATE.IDLE) {
+                if (currentGesture === GESTURE.POINTING || currentGesture === GESTURE.PINCHING) {
+                    raycaster.setFromCamera(new THREE.Vector2(smoothedCursorX, smoothedCursorY), camera);
+                    const visibleCards = cards.filter(c => !c.userData.isDissolved);
+                    const intersects = raycaster.intersectObjects(visibleCards);
+
+                    if (intersects.length > 0) {
+                        const target = intersects[0].object;
+                        if (activeCard !== target) {
+                            if (activeCard) resetCardState(activeCard);
+                            activeCard = target;
+                            highlightCard(activeCard);
+                        }
+                    } else {
+                        if (activeCard) { resetCardState(activeCard); activeCard = null; }
+                    }
+                } else {
+                    if (activeCard) { resetCardState(activeCard); activeCard = null; }
+                }
+            }
+            renderer.render(scene, camera);
+        }
+
+        function updateHandCursor3D(ndcX, ndcY) {
+            const vector = new THREE.Vector3(ndcX, ndcY, 0.5); 
+            vector.unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = 4; 
+            const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+            handCursor.position.copy(pos);
+        }
+
+        function highlightCard(card) {
+            const dir = card.userData.originPos.clone().normalize();
+            const targetPos = dir.multiplyScalar(9.5); 
+            targetPos.y = 0;
+            card.position.lerp(targetPos, 0.1);
+            card.scale.lerp(new THREE.Vector3(1.15, 1.15, 1.15), 0.1);
+            const materials = card.material;
+            if(materials[4].emissive) materials[4].emissive.setHex(0x2e5844); 
+        }
+
+        function resetCardState(card) {
+            if (card.parent === scene) cardGroup.attach(card);
+            const origin = card.userData.originPos;
+            card.position.lerp(origin, 0.1);
+            card.lookAt(0,0,0);
+            card.scale.set(1, 1, 1);
+            const materials = card.material;
+            if(materials[4].emissive) materials[4].emissive.setHex(0x000000);
+        }
+
+        function zoomInCard(card) {
+            scene.attach(card); 
+            card.updateMatrixWorld(); 
+            
+            isZoomLocked = true;
+            
+            const cardData = card.userData.cardData;
+            cardTitle.innerText = cardData.title;
+            cardDesc.innerText = cardData.desc;
+            cardInfo.style.opacity = 1;
+            
+            cardAudio.src = cardData.audio;
+            cardAudio.volume = 1.0;
+            cardAudio.play().catch(e => console.log('Audio play failed', e));
+            
+            // --- 修复重点：传入回调函数，当图片加载完成后更新纹理 ---
+            const frontCanvas = createCardTexture('front', cardData.image, () => {
+                // 回调函数：图片加载完成后执行
+                if (frontTexture) {
+                    frontTexture.needsUpdate = true; // 告诉 Three.js 更新纹理
+                }
+            });
+            
+            const frontTexture = new THREE.CanvasTexture(frontCanvas);
+            frontTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            
+            const frontMaterial = card.material[5];
+            frontMaterial.map = frontTexture;
+            frontMaterial.transparent = false; 
+            frontMaterial.opacity = 1;         
+            frontMaterial.needsUpdate = true;
+            
+            const startPos = card.position.clone();
+            const startScale = card.scale.clone();
+            const startQuat = card.quaternion.clone();
+
+            const targetPos = new THREE.Vector3(0, 0, -4.2); 
+            targetPos.applyMatrix4(camera.matrixWorld);
+
+            const dummy = new THREE.Object3D();
+            dummy.position.copy(targetPos);
+            
+            dummy.lookAt(camera.position); 
+            dummy.rotateY(Math.PI);
+            dummy.updateMatrix(); 
+            const targetQuat = dummy.quaternion.clone();
+
+            activeAura = createWhiteAura(card); 
+            scene.add(activeAura);
+            
+            let progress = 0;
+            
+            function animateZoom() {
+                if (currentState !== STATE.VIEWING) return;
+                
+                progress += 0.015; 
+                if (progress > 1) progress = 1;
+                
+                const t = progress;
+                const ease = 1 - Math.pow(1 - t, 4); 
+                
+                card.position.lerpVectors(startPos, targetPos, ease);
+                card.scale.lerpVectors(startScale, new THREE.Vector3(1.5, 1.5, 1.5), ease);
+                
+                card.quaternion.slerpQuaternions(startQuat, targetQuat, ease);
+
+                const camToCard = card.position.clone().sub(camera.position).normalize();
+                activeAura.position.copy(card.position).add(camToCard.multiplyScalar(0.8)); 
+                activeAura.rotation.copy(card.rotation);
+                
+                activeAura.material.opacity = ease * 0.8;
+
+                if (progress >= 1) {
+                    isZoomLocked = false;
+                } else {
+                    requestAnimationFrame(animateZoom);
+                }
+            }
+            animateZoom();
+        }
+
+        function zoomOutCard(card) {
+            isZoomLocked = true;
+            
+            cardInfo.style.opacity = 0;
+            cardAudio.pause();
+            cardAudio.currentTime = 0;
+            
+            if(activeAura) { 
+                scene.remove(activeAura); 
+                activeAura = null; 
+            }
+            
+            const startPos = card.position.clone();
+            const startScale = card.scale.clone();
+            const startQuat = card.quaternion.clone();
+            
+            const targetPos = card.userData.originPos.clone();
+            const dummy = new THREE.Object3D();
+            dummy.position.copy(targetPos);
+            dummy.lookAt(0, 0, 0);
+            const targetQuat = dummy.quaternion.clone();
+            
+            let progress = 0;
+            
+            function animateZoomOut() {
+                if (currentState !== STATE.IDLE) return;
+                
+                progress += 0.02;
+                if (progress > 1) progress = 1;
+                
+                const ease = 1 - Math.pow(1 - progress, 3);
+                
+                card.position.lerpVectors(startPos, targetPos, ease);
+                card.scale.lerpVectors(startScale, new THREE.Vector3(1, 1, 1), ease);
+                card.quaternion.slerpQuaternions(startQuat, targetQuat, ease);
+                
+                if (progress >= 1) {
+                    cardGroup.attach(card);
+                    isZoomLocked = false;
+                    activeCard = null;
+                    isPinching = false;
+                } else {
+                    requestAnimationFrame(animateZoomOut);
+                }
+            }
+            animateZoomOut();
+        }
+
+        function createWhiteAura(card) {
+            const count = 200; 
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const velocities = [];
+            const width = 1.8, height = 3.2;
+            
+            for(let i=0; i<count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 3 + Math.random() * 2;
+                const x = Math.cos(angle) * radius;
+                const y = (Math.random() - 0.5) * (height + 4);
+                const z = Math.sin(angle) * radius;
+                positions.push(x, y, z);
+                
+                velocities.push(-x * 0.02, -y * 0.015, -z * 0.02);
+            }
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            
+            const material = new THREE.PointsMaterial({
+                color: 0xffffff, 
+                size: 0.18,      
+                map: particleTexture, 
+                transparent: true, 
+                opacity: 0, 
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const aura = new THREE.Points(geometry, material);
+            aura.userData.velocities = velocities;
+            aura.userData.isConverging = true;
+            return aura;
+        }
+
+        function updateAura(aura) {
+            const positions = aura.geometry.attributes.position.array;
+            const velocities = aura.userData.velocities;
+            
+            if(aura.userData.isConverging) {
+                let allConverged = true;
+                for(let i=0; i<positions.length; i+=3) {
+                    const distSq = positions[i]**2 + positions[i+1]**2 + positions[i+2]**2;
+                    if(distSq > 0.25) { 
+                        positions[i] += velocities[i];
+                        positions[i+1] += velocities[i+1];
+                        positions[i+2] += velocities[i+2];
+                        allConverged = false;
+                    }
+                }
+                if(allConverged) aura.userData.isConverging = false;
+            } else {
+                for(let i=0; i<positions.length; i+=3) {
+                    positions[i] += (Math.random()-0.5) * 0.005;
+                    positions[i+1] += (Math.random()-0.5) * 0.005;
+                }
+            }
+            aura.geometry.attributes.position.needsUpdate = true;
+        }
+    </script>
+</body>
+</html>
