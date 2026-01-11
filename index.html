@@ -343,7 +343,7 @@
                         audioLoaded = true;
                         updateLoadingProgress(`音频 ${index + 1}.mp3 (超时)`);
                     }
-                }, 5000);
+                }, 20000);
                 
                 audio.addEventListener('canplaythrough', () => {
                     if (!audioLoaded) {
