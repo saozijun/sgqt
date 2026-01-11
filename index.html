@@ -201,16 +201,16 @@
 
     <script>
         const CARD_DATA = [
-            { image: "./images/g1.jpg", audio: "./audio/1.mp3", title: "蒋敦豪", desc: "要敢开口 被拒绝了再说" },
-            { image: "./images/g2.jpg", audio: "./audio/2.mp3", title: "鹭卓", desc: "想法自由发散 做自己喜欢做的事" },
-            { image: "./images/g3.jpg", audio: "./audio/3.mp3", title: "李耕耘", desc: "这是第不要去想 想的话全是问题 去做 做全是答案" },
-            { image: "./images/g4.jpg", audio: "./audio/4.mp3", title: "李昊", desc: "想到的时候 就马上去做 太阳下山是不等人的" },
-            { image: "./images/g5.jpg", audio: "./audio/5.mp3", title: "赵一博", desc: "虽然有一堆事 但我们一件一件一件一件一件总会办完的" },
-            { image: "./images/g6.jpg", audio: "./audio/6.mp3", title: "卓沅", desc: "一定不要迷茫 未来还很长" },
-            { image: "./images/g7.jpg", audio: "./audio/7.mp3", title: "赵小童", desc: "深深的话我们浅浅地说 然后未来长长的路 我们一起再慢慢地走" },
-            { image: "./images/g8.jpg", audio: "./audio/8.mp3", title: "何浩楠", desc: "开心最重要 无论如何 不要想太多 人活在世上 不就是为了要开心嘛" },
-            { image: "./images/g9.jpg", audio: "./audio/9.mp3", title: "陈少熙", desc: "人生不就是白干加白干" },
-            { image: "./images/g10.jpg", audio: "./audio/10.mp3", title: "王一珩", desc: "去做 最自信 最真诚 最热烈的自己" }
+            { image: "./images/g1.webp", audio: "./audio/1.mp3", title: "蒋敦豪", desc: "要敢开口 被拒绝了再说" },
+            { image: "./images/g2.webp", audio: "./audio/2.mp3", title: "鹭卓", desc: "想法自由发散 做自己喜欢做的事" },
+            { image: "./images/g3.webp", audio: "./audio/3.mp3", title: "李耕耘", desc: "这是第不要去想 想的话全是问题 去做 做全是答案" },
+            { image: "./images/g4.webp", audio: "./audio/4.mp3", title: "李昊", desc: "想到的时候 就马上去做 太阳下山是不等人的" },
+            { image: "./images/g5.webp", audio: "./audio/5.mp3", title: "赵一博", desc: "虽然有一堆事 但我们一件一件一件一件一件总会办完的" },
+            { image: "./images/g6.webp", audio: "./audio/6.mp3", title: "卓沅", desc: "一定不要迷茫 未来还很长" },
+            { image: "./images/g7.webp", audio: "./audio/7.mp3", title: "赵小童", desc: "深深的话我们浅浅地说 然后未来长长的路 我们一起再慢慢地走" },
+            { image: "./images/g8.webp", audio: "./audio/8.mp3", title: "何浩楠", desc: "开心最重要 无论如何 不要想太多 人活在世上 不就是为了要开心嘛" },
+            { image: "./images/g9.webp", audio: "./audio/9.mp3", title: "陈少熙", desc: "人生不就是白干加白干" },
+            { image: "./images/g10.webp", audio: "./audio/10.mp3", title: "王一珩", desc: "去做 最自信 最真诚 最热烈的自己" }
         ];
 
         const CARD_BACK_URL = "./images/h2.png"; 
@@ -250,7 +250,6 @@
             totalResources = 1 + 1 + CARD_DATA.length + CARD_DATA.length;
             console.log(`开始预加载 ${totalResources} 个资源...`);
             
-            // 设置超时保护：30秒后如果还没加载完就强制显示
             setTimeout(() => {
                 if (!allResourcesLoaded) {
                     console.warn(`加载超时！已加载 ${loadedResources}/${totalResources} 个资源`);
@@ -258,7 +257,7 @@
                     allResourcesLoaded = true;
                     showIntroContent();
                 }
-            }, 30000);
+            }, 15000);
             
             // 预加载背景图 - 先设置监听器再加载
             const handleCardBackLoad = () => {
@@ -288,11 +287,9 @@
                 }
             }
             
-            // 预加载背景音乐
             const bgMusicPreload = new Audio();
             bgMusicPreload.src = BG_MUSIC_URL;
             
-            // 音频添加超时处理
             let bgMusicLoaded = false;
             setTimeout(() => {
                 if (!bgMusicLoaded) {
@@ -300,9 +297,9 @@
                     bgMusicLoaded = true;
                     updateLoadingProgress('背景音乐 bg.mp3 (超时)');
                 }
-            }, 5000);
+            }, 10000);
             
-            bgMusicPreload.addEventListener('canplaythrough', () => {
+            bgMusicPreload.addEventListener('canplay', () => {
                 if (!bgMusicLoaded) {
                     bgMusicLoaded = true;
                     updateLoadingProgress('背景音乐 bg.mp3');
@@ -331,11 +328,9 @@
                 };
                 img.src = data.image;
                 
-                // 预加载音频
                 const audio = new Audio();
                 audio.src = data.audio;
                 
-                // 音频添加超时处理
                 let audioLoaded = false;
                 setTimeout(() => {
                     if (!audioLoaded) {
@@ -343,7 +338,7 @@
                         audioLoaded = true;
                         updateLoadingProgress(`音频 ${index + 1}.mp3 (超时)`);
                     }
-                }, 20000);
+                }, 8000);
                 
                 audio.addEventListener('canplaythrough', () => {
                     if (!audioLoaded) {
