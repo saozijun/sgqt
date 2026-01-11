@@ -246,9 +246,9 @@
         }
 
         function preloadResources() {
-            // 计算总资源数：背景图 + 背景音乐 + 10张卡片图片 + 10个音频
             totalResources = 1 + 1 + CARD_DATA.length + CARD_DATA.length;
             console.log(`开始预加载 ${totalResources} 个资源...`);
+            console.log('音频路径测试:', CARD_DATA[0].audio, BG_MUSIC_URL);
             
             setTimeout(() => {
                 if (!allResourcesLoaded) {
@@ -309,7 +309,7 @@
             bgMusicPreload.addEventListener('error', () => {
                 if (!bgMusicLoaded) {
                     bgMusicLoaded = true;
-                    console.error('Failed to load background music');
+                    console.error('Failed to load background music:', BG_MUSIC_URL, bgMusicPreload.error);
                     updateLoadingProgress('背景音乐 bg.mp3 (失败)');
                 }
             }, { once: true });
@@ -350,7 +350,7 @@
                 audio.addEventListener('error', () => {
                     if (!audioLoaded) {
                         audioLoaded = true;
-                        console.error(`Failed to load audio: ${data.audio}`);
+                        console.error(`Failed to load audio:`, data.audio, audio.error);
                         updateLoadingProgress(`音频 ${index + 1}.mp3 (失败)`);
                     }
                 }, { once: true });
