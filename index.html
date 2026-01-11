@@ -246,9 +246,9 @@
         }
 
         function preloadResources() {
+            // 计算总资源数：背景图 + 背景音乐 + 10张卡片图片 + 10个音频
             totalResources = 1 + 1 + CARD_DATA.length + CARD_DATA.length;
             console.log(`开始预加载 ${totalResources} 个资源...`);
-            console.log('音频路径测试:', CARD_DATA[0].audio, BG_MUSIC_URL);
             
             setTimeout(() => {
                 if (!allResourcesLoaded) {
@@ -309,7 +309,7 @@
             bgMusicPreload.addEventListener('error', () => {
                 if (!bgMusicLoaded) {
                     bgMusicLoaded = true;
-                    console.error('Failed to load background music:', BG_MUSIC_URL, bgMusicPreload.error);
+                    console.error('Failed to load background music');
                     updateLoadingProgress('背景音乐 bg.mp3 (失败)');
                 }
             }, { once: true });
@@ -350,7 +350,7 @@
                 audio.addEventListener('error', () => {
                     if (!audioLoaded) {
                         audioLoaded = true;
-                        console.error(`Failed to load audio:`, data.audio, audio.error);
+                        console.error(`Failed to load audio: ${data.audio}`);
                         updateLoadingProgress(`音频 ${index + 1}.mp3 (失败)`);
                     }
                 }, { once: true });
@@ -408,7 +408,7 @@
             init();
             try {
                 if (typeof Hands !== 'undefined') {
-                    hands = new Hands({locateFile: (file) => `https://unpkg.com/@mediapipe/hands/${file}`});
+                    hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
                     hands.setOptions({
                         maxNumHands: 1,
                         modelComplexity: 0, 
